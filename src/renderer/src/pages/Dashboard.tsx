@@ -39,8 +39,7 @@ export default function Dashboard() {
       }
     }
     checkEngine()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [getVersion, ping, setEngineVersion])
 
   const successCount = history.filter((h) => h.status === 'success').length
   const errorCount = history.filter((h) => h.status === 'error').length
