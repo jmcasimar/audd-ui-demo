@@ -23,8 +23,6 @@ type DbConnectionConfig = {
   database?: string
   username?: string
   password?: string
-  table: string
-  query?: string
 }
 
 /** Resultado estándar devuelto por todos los métodos de auddAPI. */

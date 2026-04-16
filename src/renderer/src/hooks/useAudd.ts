@@ -19,7 +19,7 @@ import type { DataSource, DbSource, DbConnectionConfig } from '../types'
  *
  * @example
  * const { ping, buildIR, testConnection } = useAudd()
- * const result = await testConnection({ format: 'sqlite', path: './db.sqlite', table: 'users' })
+ * const result = await testConnection({ format: 'sqlite', path: './db.sqlite' })
  */
 export function useAudd() {
   const api = window.auddAPI
@@ -49,7 +49,7 @@ export function useAudd() {
    * Traduce un DataSource (tipo del renderer) al BuildIROptions que espera
    * el proceso principal, respetando la estructura documentada en audd-node:
    *   - FileSource → `{ type: 'file', format, path, encoding, delimiter, hasHeader }`
-   *   - DbSource   → `{ type: 'db', format, path|host, port, database, username, password, table, query }`
+   *   - DbSource   → `{ type: 'db', format, path|host, port, database, username, password }`
    *
    * @param source - Fuente registrada en el contexto de la aplicación.
    */
@@ -73,9 +73,7 @@ export function useAudd() {
               port: (source as DbSource).port,
               database: (source as DbSource).database,
               username: (source as DbSource).username,
-              password: (source as DbSource).password,
-              table: (source as DbSource).table,
-              query: (source as DbSource).query
+              password: (source as DbSource).password
             }
 
       const result = await api.buildIR({ source: sourceConfig })

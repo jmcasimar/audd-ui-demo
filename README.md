@@ -101,9 +101,9 @@ audd-node (motor AUDD)
 
 | Motor      | Parámetros                                                 | Estado         |
 |------------|------------------------------------------------------------|----------------|
-| SQLite     | `path`, `table`, `query?`                                  | ✅ Disponible  |
-| MySQL      | `host`, `port` (def. 3306), `database`, `username`, `password`, `table`, `query?` | ✅ Disponible |
-| PostgreSQL | `host`, `port` (def. 5432), `database`, `username`, `password`, `table`, `query?` | ✅ Disponible |
+| SQLite     | `path`,                                                        | ✅ Disponible  |
+| MySQL      | `host`, `port` (def. 3306), `database`, `username`, `password` | ✅ Disponible |
+| PostgreSQL | `host`, `port` (def. 5432), `database`, `username`, `password` | ✅ Disponible |
 | MongoDB    | —                                                          | 🔜 Pendiente en audd-node |
 | MSSQL      | —                                                          | 🔜 Pendiente en audd-node |
 

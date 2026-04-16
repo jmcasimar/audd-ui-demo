@@ -80,10 +80,6 @@ export interface DbConnectionConfig {
   username?: string
   /** Contraseña de conexión (MySQL / PostgreSQL). */
   password?: string
-  /** Tabla a leer. */
-  table: string
-  /** Query SQL personalizada (opcional, sobreescribe la lectura de la tabla). */
-  query?: string
 }
 
 // ─── Helper de errores ────────────────────────────────────────────────────────
@@ -298,15 +294,13 @@ export async function testDbConnection(config: DbConnectionConfig): Promise<Serv
       port: config.port,
       database: config.database,
       username: config.username,
-      password: config.password,
-      table: config.table,
-      query: config.query
+      password: config.password
     }
     await engine.buildIR({ source: dbSource })
     const label = config.format === 'mysql' ? 'MySQL' : 'PostgreSQL'
     return {
       success: true,
-      data: `Conexión a ${label} exitosa. Tabla '${config.table}' verificada correctamente.`
+      data: `Conexión a ${label} exitosa.`
     }
   } catch (error) {
     return handleError(error)

@@ -30,10 +30,6 @@ export interface DbConnectionConfig {
   username?: string
   /** Contraseña de conexión. */
   password?: string
-  /** Tabla a verificar. */
-  table: string
-  /** Query personalizada opcional. */
-  query?: string
 }
 
 // ─── Fuentes de datos ─────────────────────────────────────────────────────────
@@ -82,17 +78,17 @@ export interface FileSource {
  * Documentación audd-node:
  * ```ts
  * // SQLite
- * engine.buildIR({ source: { type: 'db', format: 'sqlite', path: './db.sqlite', table: 'users' } })
+ * engine.buildIR({ source: { type: 'db', format: 'sqlite', path: './db.sqlite' } })
  *
  * // MySQL
  * engine.buildIR({ source: { type: 'db', format: 'mysql',
  *   host: 'localhost', port: 3306, database: 'mydb',
- *   username: 'user', password: 'pass', table: 'users' } })
+ *   username: 'user', password: 'pass' } })
  *
  * // PostgreSQL
  * engine.buildIR({ source: { type: 'db', format: 'postgres',
  *   host: 'localhost', port: 5432, database: 'mydb',
- *   username: 'user', password: 'pass', table: 'users' } })
+ *   username: 'user', password: 'pass' } })
  * ```
  *
  * Formatos futuros (pendientes en audd-node): mongodb, mssql.
@@ -114,10 +110,6 @@ export interface DbSource {
   username?: string
   /** Contraseña de conexión. Se maneja solo en el proceso principal (nunca en el renderer). */
   password?: string
-  /** Tabla a leer. Requerida siempre. */
-  table: string
-  /** Query SQL personalizada (opcional). Sobreescribe la lectura estándar de la tabla. */
-  query?: string
   createdAt: string
 }
 

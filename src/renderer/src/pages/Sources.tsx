@@ -166,9 +166,7 @@ export default function Sources() {
       port: values.port as number | undefined,
       database: values.database as string | undefined,
       username: values.username as string | undefined,
-      password: values.password as string | undefined,
-      table: values.table as string,
-      query: values.query as string | undefined
+      password: values.password as string | undefined
     }
 
     const result = await testConnection(config)
@@ -195,11 +193,24 @@ export default function Sources() {
         updateSource(updated)
         message.success('Fuente actualizada')
       } else {
+        let path = '';
+        if(sourceType === 'db') {
+          if (dbFormat === 'sqlite') {
+            path = 'sqlite://' + (values.path as string)
+          }
+          else if (dbFormat === 'mysql') {
+            path = `mysql://${values.username}:${values.password}@${values.host}:${values.port}/${values.database}`
+          }
+          else if (dbFormat === 'postgres') {
+            path = `postgres://${values.username}:${values.password}@${values.host}:${values.port}/${values.database}`
+          }
+        }
         const newSource = {
           id: generateId(),
           createdAt: now,
           type: sourceType,
-          ...values
+          ...values,
+          path
         } as DataSource
         addSource(newSource)
         message.success('Fuente registrada')
@@ -256,16 +267,6 @@ export default function Sources() {
             {db.host}:{db.port ?? DEFAULT_PORTS[db.format as 'mysql' | 'postgres']}/{db.database}
           </Text>
         )
-      }
-    },
-    {
-      title: 'Tabla / Ruta',
-      key: 'table',
-      render: (_: unknown, record: DataSource) => {
-        if (record.type === 'db') {
-          return <Text code style={{ fontSize: 11 }}>{(record as DbSource).table}</Text>
-        }
-        return null
       }
     },
     {
@@ -511,25 +512,6 @@ export default function Sources() {
                   </Row>
                 </>
               )}
-
-              {/* Tabla (requerida para todos los motores) */}
-              <Form.Item
-                name="table"
-                label="Tabla"
-                tooltip="Nombre de la tabla que AUDD leerá para construir el IR"
-                rules={[{ required: true, message: 'Requerido' }]}
-              >
-                <Input placeholder="mi_tabla" />
-              </Form.Item>
-
-              {/* Query personalizada */}
-              <Form.Item
-                name="query"
-                label="Query personalizada (opcional)"
-                tooltip="Si se proporciona, sobreescribe la lectura estándar de la tabla"
-              >
-                <Input.TextArea rows={3} placeholder="SELECT * FROM tabla WHERE activo = 1" />
-              </Form.Item>
 
               <Divider />
 

@@ -104,6 +104,7 @@ export default function Resolution() {
       const result = await applyResolution(currentComparison.plan, { dryRun, backup: !dryRun })
       if (result.success && result.data) {
         const parsed = parseApplyResult(result.data)
+        console.log('Apply result:', result);
         setApplyResult(parsed)
         message.success(dryRun ? 'Simulación completada (dry-run)' : 'Resolución aplicada exitosamente')
         addHistoryEntry({
