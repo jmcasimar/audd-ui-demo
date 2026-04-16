@@ -202,7 +202,7 @@ export default function Sources() {
             path = `mysql://${values.username}:${values.password}@${values.host}:${values.port}/${values.database}`
           }
           else if (dbFormat === 'postgres') {
-            path = `postgres://${values.username}:${values.password}@${values.host}:${values.port}/${values.database}`
+            path = `postgresql://${values.username}:${values.password}@${values.host}:${values.port}/${values.database}`
           }
         }
         const newSource = {
