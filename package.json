@@ -7,13 +7,15 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "start": "electron-vite preview"
+    "start": "electron-vite preview",
+    "rebuild": "electron-rebuild -f -w better-sqlite3"
   },
   "dependencies": {
     "@ant-design/icons": "^5.5.0",
     "antd": "^5.22.0",
     "audd-node": "^0.1.1",
     "better-sqlite3": "^12.9.0",
+    "electron-rebuild": "^3.2.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0"
