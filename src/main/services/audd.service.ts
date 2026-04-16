@@ -80,6 +80,10 @@ export interface DbConnectionConfig {
   username?: string
   /** Contraseña de conexión (MySQL / PostgreSQL). */
   password?: string
+  /** Tabla a verificar (opcional). */
+  table?: string
+  /** Query personalizada opcional. */
+  query?: string
 }
 
 // ─── Helper de errores ────────────────────────────────────────────────────────

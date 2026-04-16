@@ -2,17 +2,14 @@
  * @file pages/Sources.tsx
  * @description Página de gestión de fuentes de datos.
  *
- * Permite registrar, editar y eliminar fuentes de dos tipos:
- *   - Archivos: JSON, CSV
- *   - Bases de datos: SQLite, MySQL, PostgreSQL
+ * Soporta registro, edición y eliminación de fuentes de dos tipos:
+ *   - Archivos: JSON, CSV (con delimiter / hasHeader)
+ *   - Bases de datos: SQLite, MySQL, PostgreSQL, MongoDB, SQL Server (MSSQL)
  *
  * Para las fuentes de base de datos incluye un botón "Probar conexión" que
- * invoca el canal IPC `audd:testConnection` y muestra el resultado en pantalla
- * antes de guardar la configuración.
- *
- * Adaptadores planificados para versiones futuras de audd-node:
- *   - MongoDB  (pendiente en el core de AUDD)
- *   - Microsoft SQL Server  (pendiente en el core de AUDD)
+ * invoca el canal IPC `audd:testConnection`. MongoDB y MSSQL se pueden
+ * almacenar pero la prueba de conexión no está disponible aún (pendiente en
+ * el roadmap de audd-node).
  */
 
 import React, { useState } from 'react'
@@ -25,6 +22,7 @@ import {
   Input,
   Select,
   InputNumber,
+  Switch,
   Popconfirm,
   Typography,
   Card,
@@ -48,7 +46,7 @@ import {
 } from '@ant-design/icons'
 import { useAppContext } from '../store/AppContext'
 import { useAudd } from '../hooks/useAudd'
-import type { DataSource, DbSource } from '../types'
+import type { DataSource, DbSource, DbFormat } from '../types'
 
 const { Text } = Typography
 const { Option } = Select
@@ -57,11 +55,16 @@ function generateId() {
   return `src_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
 }
 
-/** Puerto por defecto según el motor de base de datos. */
+/** Puerto TCP por defecto según el motor de base de datos. */
 const DEFAULT_PORTS: Record<string, number> = {
   mysql: 3306,
-  postgres: 5432
+  postgres: 5432,
+  mongodb: 27017,
+  mssql: 1433
 }
+
+/** Motores que audd-node puede probar de conexión actualmente. */
+const TESTABLE_FORMATS = new Set<DbFormat>(['sqlite', 'mysql', 'postgres'])
 
 export default function Sources() {
   const { sources, addSource, updateSource, removeSource } = useAppContext()
@@ -70,12 +73,12 @@ export default function Sources() {
   const [editingSource, setEditingSource] = useState<DataSource | null>(null)
   const [form] = Form.useForm()
   const [sourceType, setSourceType] = useState<'file' | 'db'>('file')
-  const [dbFormat, setDbFormat] = useState<'sqlite' | 'mysql' | 'postgres'>('sqlite')
+  const [fileFormat, setFileFormat] = useState<'json' | 'csv'>('json')
+  const [dbFormat, setDbFormat] = useState<DbFormat>('sqlite')
 
-  // Estado para la prueba de conexión
   const [testingConn, setTestingConn] = useState(false)
   const [connTestResult, setConnTestResult] = useState<{
-    type: 'success' | 'error'
+    type: 'success' | 'error' | 'warning'
     message: string
   } | null>(null)
 
@@ -85,6 +88,7 @@ export default function Sources() {
     setEditingSource(null)
     form.resetFields()
     setSourceType('file')
+    setFileFormat('json')
     setDbFormat('sqlite')
     setConnTestResult(null)
     setDrawerOpen(true)
@@ -94,7 +98,9 @@ export default function Sources() {
     setEditingSource(source)
     setSourceType(source.type)
     if (source.type === 'db') {
-      setDbFormat(source.format as 'sqlite' | 'mysql' | 'postgres')
+      setDbFormat(source.format as DbFormat)
+    } else {
+      setFileFormat(source.format as 'json' | 'csv')
     }
     form.setFieldsValue(source)
     setConnTestResult(null)
@@ -106,27 +112,29 @@ export default function Sources() {
     setConnTestResult(null)
   }
 
-  // ─── Cambio de tipo de fuente ──────────────────────────────────────────────
+  // ─── Cambio de tipo/formato ────────────────────────────────────────────────
 
   const handleSourceTypeChange = (value: 'file' | 'db') => {
     setSourceType(value)
     setConnTestResult(null)
     if (value === 'file') {
+      setFileFormat('json')
       form.setFieldValue('format', 'json')
     } else {
-      form.setFieldValue('format', 'sqlite')
       setDbFormat('sqlite')
+      form.setFieldValue('format', 'sqlite')
     }
   }
 
-  // ─── Cambio de motor de base de datos ─────────────────────────────────────
+  const handleFileFormatChange = (value: 'json' | 'csv') => {
+    setFileFormat(value)
+  }
 
-  const handleDbFormatChange = (value: 'sqlite' | 'mysql' | 'postgres') => {
+  const handleDbFormatChange = (value: DbFormat) => {
     setDbFormat(value)
     setConnTestResult(null)
-    // Establecer puerto por defecto si no hay uno configurado
     if (value !== 'sqlite' && !form.getFieldValue('port')) {
-      form.setFieldValue('port', DEFAULT_PORTS[value])
+      form.setFieldValue('port', DEFAULT_PORTS[value] ?? null)
     }
   }
 
@@ -142,18 +150,20 @@ export default function Sources() {
 
   // ─── Prueba de conexión ───────────────────────────────────────────────────
 
-  /**
-   * Lee los valores actuales del formulario y prueba la conexión sin guardar.
-   *
-   * Para SQLite usa SQLiteAdapter.checkConnection (solo verifica el archivo).
-   * Para MySQL / PostgreSQL ejecuta engine.buildIR (valida servidor + tabla).
-   */
   const handleTestConnection = async () => {
+    if (!TESTABLE_FORMATS.has(dbFormat)) {
+      setConnTestResult({
+        type: 'warning',
+        message: `La prueba de conexión para ${dbFormat === 'mongodb' ? 'MongoDB' : dbFormat === 'mssql' ? 'SQL Server' : dbFormat} aún no está disponible en audd-node. Puedes guardar la configuración y estará lista cuando se integre el adaptador.`
+      })
+      return
+    }
+
     let values: Record<string, unknown>
     try {
       values = await form.validateFields()
     } catch {
-      return // form validation UI handles feedback
+      return
     }
 
     setTestingConn(true)
@@ -189,28 +199,22 @@ export default function Sources() {
       const now = new Date().toISOString()
 
       if (editingSource) {
-        const updated: DataSource = { ...editingSource, ...values, type: sourceType }
+        const updated: DataSource = {
+          ...editingSource,
+          ...values,
+          type: sourceType,
+          // Asegurar que hasHeader sea booleano si viene del Switch
+          ...(sourceType === 'file' && { hasHeader: Boolean(values.hasHeader) })
+        }
         updateSource(updated)
         message.success('Fuente actualizada')
       } else {
-        let path = '';
-        if(sourceType === 'db') {
-          if (dbFormat === 'sqlite') {
-            path = 'sqlite://' + (values.path as string)
-          }
-          else if (dbFormat === 'mysql') {
-            path = `mysql://${values.username}:${values.password}@${values.host}:${values.port}/${values.database}`
-          }
-          else if (dbFormat === 'postgres') {
-            path = `postgresql://${values.username}:${values.password}@${values.host}:${values.port}/${values.database}`
-          }
-        }
         const newSource = {
           id: generateId(),
           createdAt: now,
           type: sourceType,
           ...values,
-          path
+          ...(sourceType === 'file' && { hasHeader: Boolean(values.hasHeader) })
         } as DataSource
         addSource(newSource)
         message.success('Fuente registrada')
@@ -258,15 +262,26 @@ export default function Sources() {
         if (record.type === 'file') {
           return <Text code style={{ fontSize: 11 }}>{record.path}</Text>
         }
-        const db = record as DbSource
-        if (db.format === 'sqlite') {
-          return <Text code style={{ fontSize: 11 }}>{db.path}</Text>
+        const d = record as DbSource
+        if (d.format === 'sqlite') {
+          return <Text code style={{ fontSize: 11 }}>{d.path}</Text>
         }
+        const port = d.port ?? DEFAULT_PORTS[d.format]
+        const portStr = port ? `:${port}` : ''
         return (
           <Text code style={{ fontSize: 11 }}>
-            {db.host}:{db.port ?? DEFAULT_PORTS[db.format as 'mysql' | 'postgres']}/{db.database}
+            {d.host ?? '—'}{portStr}/{d.database ?? '—'}
           </Text>
         )
+      }
+    },
+    {
+      title: 'Tabla / Colección',
+      key: 'table',
+      render: (_: unknown, record: DataSource) => {
+        if (record.type !== 'db') return '—'
+        const d = record as DbSource
+        return d.table ? <Text code style={{ fontSize: 11 }}>{d.table}</Text> : <Text type="secondary">—</Text>
       }
     },
     {
@@ -312,15 +327,14 @@ export default function Sources() {
           type="info"
           showIcon
           style={{ marginBottom: 16 }}
-          message="Fuentes soportadas"
+          message="Formatos soportados"
           description={
             <>
               <strong>Archivos:</strong> JSON, CSV &nbsp;|&nbsp;
-              <strong>Bases de datos:</strong> SQLite, MySQL, PostgreSQL.&nbsp;
+              <strong>Bases de datos:</strong> SQLite, MySQL, PostgreSQL, MongoDB, SQL Server.&nbsp;
               <Text type="secondary">
-                Los adaptadores para <strong>MongoDB</strong> y{' '}
-                <strong>Microsoft SQL Server</strong> están planificados en el roadmap de audd-node
-                y se integrarán cuando estén disponibles en el motor AUDD.
+                MongoDB y SQL Server admiten configuración completa; la prueba de conexión y el motor
+                de comparación estarán disponibles cuando audd-node incluya sus adaptadores.
               </Text>
             </>
           }
@@ -332,15 +346,16 @@ export default function Sources() {
           rowKey="id"
           locale={{ emptyText: 'No hay fuentes registradas. Agrega una para comenzar.' }}
           pagination={{ pageSize: 10 }}
+          scroll={{ x: true }}
         />
       </Card>
 
-      {/* ─── Drawer de alta / edición ──────────────────────────────────────── */}
+      {/* ─── Drawer de alta / edición ────────────────────────────────────────── */}
       <Drawer
         title={editingSource ? 'Editar fuente' : 'Nueva fuente de datos'}
         open={drawerOpen}
         onClose={closeDrawer}
-        width={500}
+        width={520}
         footer={
           <Space style={{ justifyContent: 'flex-end', width: '100%' }}>
             <Button onClick={closeDrawer}>Cancelar</Button>
@@ -375,7 +390,7 @@ export default function Sources() {
           {sourceType === 'file' && (
             <>
               <Form.Item name="format" label="Formato" rules={[{ required: true }]}>
-                <Select>
+                <Select onChange={handleFileFormatChange}>
                   <Option value="json">JSON</Option>
                   <Option value="csv">CSV</Option>
                 </Select>
@@ -408,6 +423,31 @@ export default function Sources() {
                   <Option value="latin1">Latin-1</Option>
                 </Select>
               </Form.Item>
+
+              {/* ── Opciones específicas de CSV ───────────────────────────── */}
+              {fileFormat === 'csv' && (
+                <Row gutter={8}>
+                  <Col span={12}>
+                    <Form.Item
+                      name="delimiter"
+                      label="Delimitador"
+                      tooltip="Carácter que separa las columnas. Por defecto ','."
+                    >
+                      <Input placeholder="," maxLength={1} />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item
+                      name="hasHeader"
+                      label="Primera fila es encabezado"
+                      valuePropName="checked"
+                      initialValue={true}
+                    >
+                      <Switch />
+                    </Form.Item>
+                  </Col>
+                </Row>
+              )}
             </>
           )}
 
@@ -417,26 +457,27 @@ export default function Sources() {
           {sourceType === 'db' && (
             <>
               {/* Motor de BD */}
-              <Form.Item
-                name="format"
-                label={
-                  <Space>
-                    Motor de base de datos
-                    <Tooltip title="MongoDB y Microsoft SQL Server estarán disponibles en versiones futuras de audd-node.">
-                      <InfoCircleOutlined style={{ color: '#8c8c8c' }} />
-                    </Tooltip>
-                  </Space>
-                }
-                rules={[{ required: true }]}
-              >
+              <Form.Item name="format" label="Motor de base de datos" rules={[{ required: true }]}>
                 <Select onChange={handleDbFormatChange}>
                   <Option value="sqlite">SQLite</Option>
                   <Option value="mysql">MySQL</Option>
                   <Option value="postgres">PostgreSQL</Option>
+                  <Option value="mongodb">
+                    MongoDB
+                    <Text type="secondary" style={{ marginLeft: 8, fontSize: 11 }}>
+                      (sin prueba de conexión)
+                    </Text>
+                  </Option>
+                  <Option value="mssql">
+                    SQL Server (MSSQL)
+                    <Text type="secondary" style={{ marginLeft: 8, fontSize: 11 }}>
+                      (sin prueba de conexión)
+                    </Text>
+                  </Option>
                 </Select>
               </Form.Item>
 
-              {/* ── SQLite: solo ruta del archivo ──────────────────────── */}
+              {/* ── SQLite: ruta del archivo ───────────────────────────────── */}
               {dbFormat === 'sqlite' && (
                 <Form.Item
                   name="path"
@@ -461,14 +502,14 @@ export default function Sources() {
                 </Form.Item>
               )}
 
-              {/* ── MySQL / PostgreSQL: host, puerto, credenciales ─────── */}
+              {/* ── Motores de red: host, puerto, BD, credenciales ────────── */}
               {dbFormat !== 'sqlite' && (
                 <>
                   <Row gutter={8}>
                     <Col span={16}>
                       <Form.Item
                         name="host"
-                        label="Host"
+                        label="Host / IP"
                         rules={[{ required: true, message: 'Requerido' }]}
                       >
                         <Input placeholder="localhost" />
@@ -480,7 +521,7 @@ export default function Sources() {
                           style={{ width: '100%' }}
                           min={1}
                           max={65535}
-                          placeholder={String(DEFAULT_PORTS[dbFormat as 'mysql' | 'postgres'])}
+                          placeholder={String(DEFAULT_PORTS[dbFormat] ?? '')}
                         />
                       </Form.Item>
                     </Col>
@@ -513,9 +554,45 @@ export default function Sources() {
                 </>
               )}
 
+              {/* ── Tabla / Colección (todos los motores) ─────────────────── */}
+              <Form.Item
+                name="table"
+                label={dbFormat === 'mongodb' ? 'Colección' : 'Tabla'}
+                tooltip={
+                  dbFormat === 'mongodb'
+                    ? 'Nombre de la colección MongoDB a leer.'
+                    : 'Tabla principal a leer. Opcional si usas una query personalizada.'
+                }
+              >
+                <Input
+                  placeholder={dbFormat === 'mongodb' ? 'mi_coleccion' : 'mi_tabla'}
+                />
+              </Form.Item>
+
+              {/* ── Query personalizada (opcional) ────────────────────────── */}
+              <Form.Item
+                name="query"
+                label="Query personalizada"
+                tooltip={
+                  dbFormat === 'mongodb'
+                    ? 'Pipeline de agregación o filtro en formato JSON.'
+                    : 'Sentencia SQL que sobreescribe la lectura de la tabla. Ej: SELECT * FROM tabla WHERE activo = 1'
+                }
+              >
+                <Input.TextArea
+                  placeholder={
+                    dbFormat === 'mongodb'
+                      ? '[{ "$match": { "activo": true } }]'
+                      : 'SELECT * FROM mi_tabla WHERE ...'
+                  }
+                  rows={2}
+                  allowClear
+                />
+              </Form.Item>
+
               <Divider />
 
-              {/* ── Prueba de conexión ─────────────────────────────────── */}
+              {/* ── Prueba de conexión ─────────────────────────────────────── */}
               <Form.Item label="Verificar conexión">
                 <Space direction="vertical" style={{ width: '100%' }}>
                   <Space>
@@ -523,13 +600,19 @@ export default function Sources() {
                       icon={<ApiOutlined />}
                       onClick={handleTestConnection}
                       loading={testingConn}
+                      disabled={!TESTABLE_FORMATS.has(dbFormat)}
                     >
                       {dbFormat === 'sqlite' ? 'Verificar archivo' : 'Probar conexión'}
                     </Button>
-                    {dbFormat !== 'sqlite' && (
+                    {TESTABLE_FORMATS.has(dbFormat) && dbFormat !== 'sqlite' && (
                       <Tooltip title="Para MySQL y PostgreSQL, la prueba ejecuta un buildIR completo que valida la conexión al servidor y el acceso a la tabla configurada.">
                         <InfoCircleOutlined style={{ color: '#8c8c8c' }} />
                       </Tooltip>
+                    )}
+                    {!TESTABLE_FORMATS.has(dbFormat) && (
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        Prueba no disponible para {dbFormat === 'mongodb' ? 'MongoDB' : dbFormat === 'mssql' ? 'SQL Server' : dbFormat} (pendiente en audd-node)
+                      </Text>
                     )}
                   </Space>
 

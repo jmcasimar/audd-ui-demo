@@ -30,8 +30,8 @@ export interface DbConnectionConfig {
   username?: string
   /** Contraseña de conexión. */
   password?: string
-  /** Tabla a verificar (requerida). */
-  table: string
+  /** Tabla a verificar (opcional). */
+  table?: string
   /** Query personalizada opcional. */
   query?: string
 }
@@ -44,13 +44,17 @@ export type SourceType = 'file' | 'db'
 export type FileFormat = 'json' | 'csv'
 
 /**
- * Formatos de base de datos soportados actualmente por audd-node.
+ * Formatos de base de datos soportados.
  *
- * Pendientes de integración en versiones futuras del core de AUDD:
- *   - `'mongodb'`  → MongoDB  (adaptador en roadmap del motor)
- *   - `'mssql'`    → Microsoft SQL Server  (adaptador en roadmap del motor)
+ * Motores con adaptador completo en audd-node (prueba de conexión y buildIR disponibles):
+ *   sqlite, mysql, postgres
+ *
+ * Motores almacenables en la configuración local pero cuyo adaptador en
+ * audd-node aún está en desarrollo (sin prueba de conexión ni buildIR):
+ *   - `'mongodb'`  → MongoDB
+ *   - `'mssql'`    → Microsoft SQL Server
  */
-export type DbFormat = 'sqlite' | 'mysql' | 'postgres'
+export type DbFormat = 'sqlite' | 'mysql' | 'postgres' | 'mongodb' | 'mssql'
 
 /**
  * Fuente de datos basada en archivo (JSON o CSV).
@@ -110,13 +114,16 @@ export interface DbSource {
   port?: number
   /** Nombre de la base de datos (MySQL / PostgreSQL). */
   database?: string
-  /** Usuario de conexión (MySQL / PostgreSQL). */
+  /** Usuario de conexión (MySQL / PostgreSQL / MongoDB / MSSQL). */
   username?: string
   /** Contraseña de conexión. Se maneja solo en el proceso principal (nunca en el renderer). */
   password?: string
-  /** Tabla a leer. Requerida para todos los motores. */
-  table: string
-  /** Query SQL personalizada (opcional). Sobreescribe la lectura de la tabla. */
+  /**
+   * Tabla (SQL) o colección (MongoDB) a leer. Opcional: si se omite se puede
+   * usar `query` para especificar la consulta completa.
+   */
+  table?: string
+  /** Query SQL / pipeline personalizado (opcional). Sobreescribe la lectura de la tabla. */
   query?: string
   createdAt: string
 }

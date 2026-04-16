@@ -6,9 +6,9 @@ import type { DataSource, HistoryEntry } from './types'
  * Configuración de conexión a base de datos expuesta al renderer.
  *
  * Formatos soportados actualmente (via audd-node):
- *   - sqlite   → requiere `path` y `table`
- *   - mysql    → requiere `host`, `database`, `username`, `password`, `table`
- *   - postgres → requiere `host`, `database`, `username`, `password`, `table`
+ *   - sqlite   → requiere `path`
+ *   - mysql    → requiere `host`, `database`, `username`, `password`
+ *   - postgres → requiere `host`, `database`, `username`, `password`
  *
  * Formatos planificados para futuras versiones de audd-node:
  *   - mongodb  (pendiente en el core de AUDD)
@@ -22,7 +22,7 @@ type DbConnectionConfig = {
   database?: string
   username?: string
   password?: string
-  table: string
+  table?: string
   query?: string
 }
 

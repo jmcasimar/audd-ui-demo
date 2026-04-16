@@ -28,7 +28,7 @@ type DbConnectionConfig = {
   database?: string
   username?: string
   password?: string
-  table: string
+  table?: string
   query?: string
 }
 
