@@ -2,10 +2,12 @@
  * @file preload/index.ts
  * @description Preload script de Electron.
  *
- * Expone al renderer una API controlada a través de contextBridge bajo
- * `window.auddAPI`. Ningún módulo de Node.js ni de Electron queda
- * directamente accesible desde el renderer (contextIsolation: true,
- * nodeIntegration: false).
+ * Expone al renderer dos APIs controladas a través de contextBridge:
+ *   - `window.auddAPI` → motor AUDD (buildIR, compare, resolución, etc.)
+ *   - `window.dbAPI`   → persistencia local (fuentes de datos e historial)
+ *
+ * Ningún módulo de Node.js ni de Electron queda directamente accesible
+ * desde el renderer (contextIsolation: true, nodeIntegration: false).
  *
  * Todos los métodos delegan en ipcRenderer.invoke y devuelven promesas
  * con la forma `{ success, data?, error?, errorCode? }`.
@@ -13,6 +15,9 @@
 
 import { contextBridge, ipcRenderer } from 'electron'
 import type { BuildIROptions, CompareOptions, ResolveOptions, ApplyOptions } from 'audd-node'
+import type { DataSource, HistoryEntry } from '../renderer/src/types'
+
+// ─── Tipos auxiliares ─────────────────────────────────────────────────────────
 
 /** Configuración de conexión a base de datos (sin el campo `type: 'db'`). */
 type DbConnectionConfig = {
@@ -23,6 +28,8 @@ type DbConnectionConfig = {
   database?: string
   username?: string
   password?: string
+  table: string
+  query?: string
 }
 
 /** Resultado estándar devuelto por todos los métodos de auddAPI. */
@@ -32,6 +39,8 @@ type ApiResult<T = string> = Promise<{
   error?: string
   errorCode?: string
 }>
+
+// ─── API del motor AUDD ───────────────────────────────────────────────────────
 
 const auddAPI = {
   /** Prueba de conectividad con el addon nativo. Devuelve "pong" si responde. */
@@ -107,4 +116,49 @@ const auddAPI = {
     ipcRenderer.invoke('dialog:selectFile', options)
 }
 
+// ─── API de persistencia local ────────────────────────────────────────────────
+
+/**
+ * API de persistencia: fuentes de datos e historial de operaciones.
+ * Los datos se guardan en SQLite (better-sqlite3) en el directorio userData de Electron.
+ */
+const dbAPI = {
+  /** Devuelve todas las fuentes de datos almacenadas. */
+  getSources: (): Promise<{ success: boolean; data?: DataSource[]; error?: string }> =>
+    ipcRenderer.invoke('db:getSources'),
+
+  /**
+   * Inserta una nueva fuente de datos.
+   * @param source - DataSource con id y createdAt ya generados.
+   */
+  addSource: (source: DataSource): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('db:addSource', source),
+
+  /**
+   * Actualiza una fuente de datos existente.
+   * @param source - DataSource con los datos actualizados.
+   */
+  updateSource: (source: DataSource): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('db:updateSource', source),
+
+  /**
+   * Elimina una fuente de datos por su id.
+   * @param id - Identificador de la fuente a eliminar.
+   */
+  removeSource: (id: string): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('db:removeSource', id),
+
+  /** Devuelve todas las entradas del historial, de más reciente a más antigua. */
+  getHistory: (): Promise<{ success: boolean; data?: HistoryEntry[]; error?: string }> =>
+    ipcRenderer.invoke('db:getHistory'),
+
+  /**
+   * Inserta una nueva entrada en el historial de operaciones.
+   * @param entry - HistoryEntry con id y date ya generados.
+   */
+  addHistoryEntry: (entry: HistoryEntry): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('db:addHistoryEntry', entry)
+}
+
 contextBridge.exposeInMainWorld('auddAPI', auddAPI)
+contextBridge.exposeInMainWorld('dbAPI', dbAPI)

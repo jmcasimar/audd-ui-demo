@@ -1,12 +1,14 @@
 /// <reference types="vite/client" />
 
+import type { DataSource, HistoryEntry } from './types'
+
 /**
  * Configuración de conexión a base de datos expuesta al renderer.
  *
  * Formatos soportados actualmente (via audd-node):
- *   - sqlite   → requiere `path`
- *   - mysql    → requiere `host`, `database`, `username`, `password`
- *   - postgres → requiere `host`, `database`, `username`, `password`
+ *   - sqlite   → requiere `path` y `table`
+ *   - mysql    → requiere `host`, `database`, `username`, `password`, `table`
+ *   - postgres → requiere `host`, `database`, `username`, `password`, `table`
  *
  * Formatos planificados para futuras versiones de audd-node:
  *   - mongodb  (pendiente en el core de AUDD)
@@ -20,6 +22,8 @@ type DbConnectionConfig = {
   database?: string
   username?: string
   password?: string
+  table: string
+  query?: string
 }
 
 interface Window {
@@ -41,6 +45,8 @@ interface Window {
         database?: string
         username?: string
         password?: string
+        table?: string
+        query?: string
         encoding?: string
         delimiter?: string
         hasHeader?: boolean
@@ -92,5 +98,29 @@ interface Window {
       filters?: { name: string; extensions: string[] }[]
       properties?: string[]
     }) => Promise<{ success: boolean; data?: string[]; error?: string }>
+  }
+
+  /**
+   * API de persistencia local (SQLite via better-sqlite3).
+   * Persiste fuentes de datos e historial de operaciones entre sesiones.
+   */
+  dbAPI: {
+    /** Devuelve todas las fuentes de datos almacenadas. */
+    getSources: () => Promise<{ success: boolean; data?: DataSource[]; error?: string }>
+
+    /** Inserta una nueva fuente de datos. */
+    addSource: (source: DataSource) => Promise<{ success: boolean; error?: string }>
+
+    /** Actualiza una fuente de datos existente. */
+    updateSource: (source: DataSource) => Promise<{ success: boolean; error?: string }>
+
+    /** Elimina una fuente de datos por su id. */
+    removeSource: (id: string) => Promise<{ success: boolean; error?: string }>
+
+    /** Devuelve todas las entradas del historial, de más reciente a más antigua. */
+    getHistory: () => Promise<{ success: boolean; data?: HistoryEntry[]; error?: string }>
+
+    /** Inserta una nueva entrada en el historial de operaciones. */
+    addHistoryEntry: (entry: HistoryEntry) => Promise<{ success: boolean; error?: string }>
   }
 }

@@ -30,6 +30,10 @@ export interface DbConnectionConfig {
   username?: string
   /** Contraseña de conexión. */
   password?: string
+  /** Tabla a verificar (requerida). */
+  table: string
+  /** Query personalizada opcional. */
+  query?: string
 }
 
 // ─── Fuentes de datos ─────────────────────────────────────────────────────────
@@ -110,6 +114,10 @@ export interface DbSource {
   username?: string
   /** Contraseña de conexión. Se maneja solo en el proceso principal (nunca en el renderer). */
   password?: string
+  /** Tabla a leer. Requerida para todos los motores. */
+  table: string
+  /** Query SQL personalizada (opcional). Sobreescribe la lectura de la tabla. */
+  query?: string
   createdAt: string
 }
 

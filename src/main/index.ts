@@ -3,6 +3,8 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerAuddIpc } from './ipc/audd.ipc'
 import { registerDialogIpc } from './ipc/dialog.ipc'
+import { registerDbIpc } from './ipc/db.ipc'
+import { initDb } from './services/db.service'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -44,8 +46,10 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  initDb()
   registerAuddIpc()
   registerDialogIpc()
+  registerDbIpc()
 
   createWindow()
 
