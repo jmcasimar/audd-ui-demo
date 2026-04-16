@@ -198,10 +198,23 @@ export default function Sources() {
       const values = await form.validateFields()
       const now = new Date().toISOString()
 
+      let path = values.path as string | undefined
+      if (sourceType === 'db') {
+        if(dbFormat === 'sqlite') {
+          path = `sqlite://${values.path}`
+        }
+        else if(dbFormat === 'mysql') {
+          path = `mysql://${values.username}:${values.password}@${values.host}:${values.port ?? DEFAULT_PORTS.mysql}/${values.database}`
+        }
+        else if(dbFormat === 'postgres') {
+          path = `postgresql://${values.username}:${values.password}@${values.host}:${values.port ?? DEFAULT_PORTS.postgres}/${values.database}`
+        }
+      }
       if (editingSource) {
         const updated: DataSource = {
           ...editingSource,
           ...values,
+          path,
           type: sourceType,
           // Asegurar que hasHeader sea booleano si viene del Switch
           ...(sourceType === 'file' && { hasHeader: Boolean(values.hasHeader) })
@@ -214,6 +227,7 @@ export default function Sources() {
           createdAt: now,
           type: sourceType,
           ...values,
+          path,
           ...(sourceType === 'file' && { hasHeader: Boolean(values.hasHeader) })
         } as DataSource
         addSource(newSource)
